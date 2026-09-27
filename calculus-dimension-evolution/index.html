@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微積分幾何維度演進：從點到體積的積分累積</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel Standalone for JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- MathJax 3 configuration & script -->
+  <script>
+    window.MathJax = {
+      loader: {load: ['[tex]/color']},
+      tex: {
+        packages: {'[+]': ['color']},
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady();
+        }
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- Canvas styling & base styles -->
+  <style>
+    body {
+      background-color: #F8FAFC;
+      color: #0f172a;
+      overflow-x: hidden;
+      font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    }
+    .academic-card {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+    }
+    input[type=range] {
+      accent-color: #3b82f6;
+    }
+    .tab-active {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+    }
+    /* Custom scrollbar for control sidebar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 flex flex-col antialiased">
+  <div id="root" class="flex-1 flex flex-col"></div>
+
+  <!-- Main React Application Script -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // Dimension metadata and descriptions
+    const DIMENSIONS = [
+      {
+        id: '0D',
+        title: '0D 點 (Point)',
+        sub: '零維空間基元：微元 dx 的無體積奇點',
+        badge: '位置標誌',
+        elementUnit: '無 (零向度)',
+        discreteFormula: 'P = (x_0)',
+        continuousFormula: 'x_0 \\in \\mathbb{R}^1 \\quad (\\mu(P) = 0)',
+        concept: '點在幾何學上是純粹的位置定義，沒有長度、面積或體積。在微積分中，它是微元 \\(dx\\) 凝結收斂的幾何基點。',
+        integralIntuition: '空間基元：不具備延展向度，測度恆為 0。'
+      },
+      {
+        id: '1D',
+        title: '1D 線 (Length)',
+        sub: '點的連續流動：微元 dx 的一階累積',
+        badge: '長度累積',
+        elementUnit: 'Δx 微元段',
+        discreteFormula: 'L_n = \\sum_{i=1}^n \\color{red}{1} \\cdot \\color{blue}{\\Delta x}',
+        continuousFormula: 'L = \\int_a^b \\color{red}{1} \\, \\color{blue}{dx} = b - a',
+        concept: '將無數個位置點沿著單一維度密集加總，微小間距 \\(\\color{blue}{\\Delta x}\\) 趨近於微分量 \\(\\color{blue}{dx}\\)。離散點的序列在此蛻變為連綿的空間線段。',
+        integralIntuition: '維度提升：0D → 1D 長度 \\( (L = \\int 1 \\, dx) \\)。'
+      },
+      {
+        id: '2D',
+        title: '2D 面 (Area)',
+        sub: '線段的掃掠累積：橫截線黎曼和',
+        badge: '面積累積',
+        elementUnit: 'f(x)·Δx 矩形微元',
+        discreteFormula: 'A_n = \\sum_{i=1}^n \\color{red}{f(x_i^*)} \\cdot \\color{blue}{\\Delta x}',
+        continuousFormula: 'A = \\int_a^b \\color{red}{f(x)} \\, \\color{blue}{dx}',
+        concept: '將 1D 的線段條柱（高為 \\(\\color{red}{f(x)}\\)、寬為 \\(\\color{blue}{\\Delta x}\\)）由左至右並排累積。當條柱數量 \\(n \\to \\infty\\)，\\(\\color{blue}{\\Delta x} \\to \\color{blue}{dx}\\)，長條和轉化為函數曲線下的定積分面積。',
+        integralIntuition: '維度提升：1D → 2D 面積 \\( (A = \\int f(x) \\, dx) \\)。'
+      },
+      {
+        id: '3D',
+        title: '3D 體 (Volume)',
+        sub: '截面的平行疊加：切片法求體積',
+        badge: '體積疊加',
+        elementUnit: 'A(z)·Δz 薄片微元',
+        discreteFormula: 'V_n = \\sum_{k=1}^n \\color{red}{A(z_k)} \\cdot \\color{blue}{\\Delta z}',
+        continuousFormula: 'V = \\int_0^H \\color{red}{A(z)} \\, \\color{blue}{dz}',
+        concept: '利用卡瓦列里原理（Cavalieri\'s principle），將厚度為 \\(\\color{blue}{\\Delta z}\\) 的 2D 幾何薄片（面積為 \\(\\color{red}{A(z)}\\)）沿 Z 軸層層堆棧。當切片極限細化時，累積出實體三維結構。',
+        integralIntuition: '維度提升：2D → 3D 體積 \\( (V = \\int A(z) \\, dz) \\)。'
+      }
+    ];
+
+    function MathDisplay({ math, display = false }) {
+      const containerRef = useRef(null);
+
+      useEffect(() => {
+        if (containerRef.current && window.MathJax && window.MathJax.typesetPromise) {
+          containerRef.current.innerHTML = display ? `\\[${math}\\]` : `\\(${math}\\)`;
+          window.MathJax.typesetPromise([containerRef.current]).catch(err => {
+            console.error('MathJax formatting error:', err);
+          });
+        }
+      }, [math, display]);
+
+      return <span ref={containerRef} className={display ? "block my-1.5 overflow-x-auto" : "inline"} />;
+    }
+
+    function MathText({ text, className }) {
+      const containerRef = useRef(null);
+
+      useEffect(() => {
+        if (containerRef.current && window.MathJax && window.MathJax.typesetPromise) {
+          containerRef.current.innerHTML = text;
+          window.MathJax.typesetPromise([containerRef.current]).catch(err => {
+            console.error('MathJax formatting error:', err);
+          });
+        }
+      }, [text]);
+
+      return <span ref={containerRef} className={className} />;
+    }
+
+    function App() {
+      const [currentDim, setCurrentDim] = useState('2D');
+      const [n, setN] = useState(16); // Sampling/Density count
+      const [progress, setProgress] = useState(100); // 0 to 100%
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [playbackSpeed, setPlaybackSpeed] = useState(1);
+      
+      const [funcType, setFuncType] = useState('trig');
+      const [riemannMode, setRiemannMode] = useState('left');
+      const [showErrorArea, setShowErrorArea] = useState(false);
+      
+      // 3D rotation angles for volume view
+      const [rotX, setRotX] = useState(25);
+      const [rotY, setRotY] = useState(-35);
+      const [isDragging, setIsDragging] = useState(false);
+      const dragStart = useRef({ x: 0, y: 0 });
+
+      const canvasRef = useRef(null);
+      const animFrameRef = useRef(null);
+
+      // Playback loop for dynamic growth progress
+      useEffect(() => {
+        let lastTime = performance.now();
+        const loop = (currentTime) => {
+          const delta = (currentTime - lastTime) / 1000;
+          lastTime = currentTime;
+
+          if (isPlaying) {
+            setProgress((prev) => {
+              const next = prev + delta * 20 * playbackSpeed;
+              if (next >= 100) {
+                setTimeout(() => setIsPlaying(false), 0);
+                return 100; // stop at completion
+              }
+              return next;
+            });
+          }
+          animFrameRef.current = requestAnimationFrame(loop);
+        };
+
+        animFrameRef.current = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(animFrameRef.current);
+      }, [isPlaying, playbackSpeed]);
+
+      const f = useCallback((u) => {
+        switch(funcType) {
+          case 'constant': return 0.5;
+          case 'linear': return 0.2 + 0.6 * u;
+          case 'quad': return 0.1 + 0.8 * u * u;
+          case 'trig': default: return 0.2 + 0.65 * Math.sin(u * 1.5 + 0.2) + 0.12 * Math.cos(u * 3.5);
+        }
+      }, [funcType]);
+
+      const shapeMult = useCallback((u) => {
+        switch(funcType) {
+          case 'constant': return 1.0;
+          case 'linear': return (1 - 0.5 * u);
+          case 'quad': return (1 - 0.7 * u * u);
+          case 'trig': default: return (0.6 + 0.4 * Math.cos(u * Math.PI * 2));
+        }
+      }, [funcType]);
+
+      const activeDimData = useMemo(() => {
+        return DIMENSIONS.find(d => d.id === currentDim) || DIMENSIONS[0];
+      }, [currentDim]);
+
+      // Calculate real-time mathematical statistics for telemetry card
+      const stats = useMemo(() => {
+        const pRatio = progress / 100;
+        const totalN = Math.max(2, n);
+        const currentElements = Math.floor(totalN * pRatio);
+
+        if (currentDim === '0D') {
+          return {
+            unit: '無量綱',
+            stepSize: '0.00 (dx → 0)',
+            discreteSum: '0.000',
+            exactVal: '0.000',
+            error: '0.00%'
+          };
+        } else if (currentDim === '1D') {
+          const L_total = 10.0;
+          const dx = L_total / totalN;
+          const currentL = currentElements * dx;
+          const exactL = L_total * pRatio;
+          const err = exactL > 0 ? (Math.abs(currentL - exactL) / exactL) * 100 : 0;
+          return {
+            unit: '單位長度',
+            stepSize: `Δx = ${(dx).toFixed(3)}`,
+            discreteSum: currentL.toFixed(3),
+            exactVal: exactL.toFixed(3),
+            error: `${err.toFixed(1)}%`
+          };
+        } else if (currentDim === '2D') {
+          const dx = 1.0 / totalN;
+          let sum = 0;
+          for (let i = 0; i < currentElements; i++) {
+            let u;
+            if (riemannMode === 'left') u = i / totalN;
+            else if (riemannMode === 'right') u = (i + 1) / totalN;
+            else u = (i + 0.5) / totalN;
+            sum += f(u) * dx;
+          }
+          // numerical approximation for continuous exact value up to pRatio
+          let exactSum = 0;
+          const steps = 1000;
+          const du = pRatio / steps;
+          for (let i = 0; i < steps; i++) {
+            exactSum += f((i + 0.5) * du) * du;
+          }
+          const err = exactSum > 0 ? (Math.abs(sum - exactSum) / (exactSum || 1)) * 100 : 0;
+          return {
+            unit: '單位面積',
+            stepSize: `Δx = ${(dx).toFixed(3)}`,
+            discreteSum: sum.toFixed(3),
+            exactVal: exactSum.toFixed(3),
+            error: `${err.toFixed(1)}%`
+          };
+        } else {
+          // 3D slices
+          const H = 5.0;
+          const dz = H / totalN;
+          let sumV = 0;
+          for (let i = 0; i < currentElements; i++) {
+            let u;
+            if (riemannMode === 'left') u = i / totalN;
+            else if (riemannMode === 'right') u = (i + 1) / totalN;
+            else u = (i + 0.5) / totalN;
+            
+            const r = 2.0 * shapeMult(u);
+            const area = (2 * r) * (2 * r);
+            sumV += area * dz;
+          }
+          // numerical approximation for exact volume
+          let exactV = 0;
+          const steps = 1000;
+          const du = pRatio / steps;
+          for (let i = 0; i < steps; i++) {
+            const r = 2.0 * shapeMult((i + 0.5) * du);
+            exactV += (2 * r) * (2 * r) * (H * du);
+          }
+          const err = exactV > 0 ? (Math.abs(sumV - exactV) / (exactV || 1)) * 100 : 0;
+          return {
+            unit: '單位體積',
+            stepSize: `Δz = ${(dz).toFixed(3)}`,
+            discreteSum: sumV.toFixed(3),
+            exactVal: exactV.toFixed(3),
+            error: `${err.toFixed(1)}%`
+          };
+        }
+      }, [currentDim, n, progress, funcType, riemannMode, f, shapeMult]);
+
+      const drawCanvas = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const w = rect.width;
+        const h = rect.height;
+
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+        }
+
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, w, h);
+
+        // Academic grid background
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        const gridSize = 28;
+        for (let x = 0; x < w; x += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, h);
+          ctx.stroke();
+        }
+        for (let y = 0; y < h; y += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
+
+        // Global animation parameters
+        const currentProgressRatio = progress / 100;
+        const density = Math.max(2, n);
+
+        if (currentDim === '0D') {
+          const cx = w * 0.5;
+          const cy = h * 0.5;
+
+          // Main horizontal 1D coordinate axis to give context
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(w * 0.12, cy);
+          ctx.lineTo(w * 0.88, cy);
+          ctx.stroke();
+
+          // Axis Arrow
+          ctx.beginPath();
+          ctx.moveTo(w * 0.88 - 10, cy - 6);
+          ctx.lineTo(w * 0.88, cy);
+          ctx.lineTo(w * 0.88 - 10, cy + 6);
+          ctx.fillStyle = '#94a3b8';
+          ctx.fill();
+
+          // Axis label
+          ctx.font = '13px JetBrains Mono, monospace';
+          ctx.fillStyle = '#64748b';
+          ctx.fillText('x 軸 (1D 空間流)', w * 0.88 - 50, cy + 26);
+
+          // Pulse wave on point
+          const pulse = (Math.sin(Date.now() / 250) + 1) / 2;
+          const radius = 6 + pulse * 4;
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius * 2.2, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.18)';
+          ctx.fill();
+
+          // Center solid point
+          ctx.beginPath();
+          ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+          ctx.fillStyle = '#1d4ed8';
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Coordinate label & measurement tag
+          ctx.fillStyle = '#1e3a8a';
+          ctx.font = 'bold 15px JetBrains Mono, monospace';
+          ctx.fillText('P(x₀)', cx - 18, cy - 24);
+
+          ctx.fillStyle = '#475569';
+          ctx.font = '12px Inter, sans-serif';
+          ctx.fillText('點維度 = 0 | 長度 L = 0 | 體積 V = 0', cx - 90, cy + 42);
+          ctx.fillText('無窮小測度微元: dx → 0', cx - 65, cy + 62);
+        }
+
+        else if (currentDim === '1D') {
+          const startX = w * 0.15;
+          const totalLength = w * 0.7;
+          const lineY = h * 0.52;
+          const effectiveLen = totalLength * currentProgressRatio;
+
+          // Axis background
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(startX, lineY);
+          ctx.lineTo(startX + totalLength, lineY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Boundary ticks
+          ctx.strokeStyle = '#64748b';
+          ctx.lineWidth = 2;
+          // a tick
+          ctx.beginPath();
+          ctx.moveTo(startX, lineY - 14);
+          ctx.lineTo(startX, lineY + 14);
+          ctx.stroke();
+          // b tick
+          ctx.beginPath();
+          ctx.moveTo(startX + totalLength, lineY - 14);
+          ctx.lineTo(startX + totalLength, lineY + 14);
+          ctx.stroke();
+
+          ctx.font = 'bold 14px JetBrains Mono, monospace';
+          ctx.fillStyle = '#334155';
+          ctx.fillText('x = a', startX - 16, lineY + 32);
+          ctx.fillText('x = b', startX + totalLength - 16, lineY + 32);
+
+          // Render discrete segments or points according to density n
+          const stepSize = totalLength / density;
+
+          // Draw accumulated segments
+          for (let i = 0; i < density; i++) {
+            const segX1 = startX + i * stepSize;
+            const segX2 = startX + (i + 1) * stepSize;
+            
+            // Only draw fully formed segments
+            if (segX2 <= startX + effectiveLen + 0.1) {
+              ctx.fillStyle = (i % 2 === 0) ? 'rgba(59, 130, 246, 0.45)' : 'rgba(37, 99, 235, 0.6)';
+              ctx.fillRect(segX1, lineY - 8, stepSize, 16);
+              ctx.strokeStyle = '#1d4ed8';
+              ctx.lineWidth = 1.5;
+              ctx.strokeRect(segX1, lineY - 8, stepSize, 16);
+            }
+          }
+
+          // Draw points up to current progress
+          for (let i = 0; i <= density; i++) {
+            const pX = startX + i * stepSize;
+            if (pX <= startX + effectiveLen + 0.1) {
+              ctx.beginPath();
+              ctx.arc(pX, lineY, 3, 0, Math.PI * 2);
+              ctx.fillStyle = '#1e3a8a';
+              ctx.fill();
+            }
+          }
+
+          // Top continuous accumulation arrow
+          if (effectiveLen > 4) {
+            ctx.strokeStyle = '#2563eb';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(startX, lineY - 32);
+            ctx.lineTo(startX + effectiveLen, lineY - 32);
+            ctx.stroke();
+
+            // Arrow head
+            ctx.beginPath();
+            ctx.moveTo(startX + effectiveLen - 8, lineY - 37);
+            ctx.lineTo(startX + effectiveLen, lineY - 32);
+            ctx.lineTo(startX + effectiveLen - 8, lineY - 27);
+            ctx.fillStyle = '#2563eb';
+            ctx.fill();
+
+            // Delta x & length label
+            ctx.font = '13px JetBrains Mono, monospace';
+            ctx.fillStyle = '#1e40af';
+            ctx.fillText(`Δx = ((b-a))/${density}`, startX + 10, lineY - 44);
+            ctx.fillText(`L(t) = ${(effectiveLen / totalLength).toFixed(2)} · (b - a)`, startX + effectiveLen / 2 - 40, lineY - 14);
+          }
+
+          // Precise Swept Indicator Line at Current Accumulation Frontier (Red Line)
+          if (currentProgressRatio > 0.005) {
+            const activeX = startX + effectiveLen;
+            ctx.save();
+            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(activeX, lineY - 20);
+            ctx.lineTo(activeX, lineY + 20);
+            ctx.stroke();
+            ctx.restore();
+
+            // End markers for the red sweeping line
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.arc(activeX, lineY, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+        }
+
+        else if (currentDim === '2D') {
+          const originX = w * 0.12;
+          const originY = h * 0.8;
+          const plotW = w * 0.78;
+          const plotH = h * 0.62;
+          // Draw axes
+          ctx.strokeStyle = '#64748b';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          // X-axis
+          ctx.moveTo(originX - 10, originY);
+          ctx.lineTo(originX + plotW + 20, originY);
+          // Y-axis
+          ctx.moveTo(originX, originY + 10);
+          ctx.lineTo(originX, originY - plotH - 20);
+          ctx.stroke();
+
+          // Axis markers
+          ctx.font = 'bold 12px JetBrains Mono, monospace';
+          ctx.fillStyle = '#64748b';
+          ctx.fillText('x = a', originX - 16, originY + 22);
+          ctx.fillText('x = b', originX + plotW - 16, originY + 22);
+          ctx.fillText('y = f(x) (長度微元 L)', originX - 8, originY - plotH - 26);
+
+          // Active range based on progress
+          const stepW = plotW / density;
+          const activeU = Math.min(1, Math.max(0, currentProgressRatio));
+          const activeX = originX + activeU * plotW;
+
+          // Draw Riemann Rectangles (Discrete slices)
+          for (let i = 0; i < density; i++) {
+            const bx = originX + i * stepW;
+            const rightX = bx + stepW;
+            
+            // Only draw fully formed rectangles (discrete sum)
+            if (rightX <= activeX + 0.1) {
+              let u;
+              if (riemannMode === 'left') u = i / density;
+              else if (riemannMode === 'right') u = (i + 1) / density;
+              else u = (i + 0.5) / density;
+              
+              const barH = f(u) * plotH;
+              const by = originY - barH;
+
+              // Translucent gradient fill for Riemann rectangles
+              const grad = ctx.createLinearGradient(bx, by, bx, originY);
+              grad.addColorStop(0, 'rgba(59, 130, 246, 0.65)');
+              grad.addColorStop(1, 'rgba(191, 219, 254, 0.35)');
+
+              ctx.fillStyle = grad;
+              ctx.fillRect(bx, by, stepW, barH);
+
+              ctx.strokeStyle = '#1d4ed8';
+              ctx.lineWidth = density > 45 ? 0.6 : 1.2;
+              ctx.strokeRect(bx, by, stepW, barH);
+
+              // Draw line height sample at the evaluation point
+              if (density <= 20) {
+                ctx.beginPath();
+                const px = originX + u * plotW;
+                ctx.arc(px, by, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#1e3a8a';
+                ctx.fill();
+              }
+            }
+          }
+
+          // Draw error area (difference between curve and rectangles)
+          if (showErrorArea) {
+            ctx.fillStyle = 'rgba(234, 179, 8, 0.4)'; // Yellow-500
+            for (let i = 0; i < density; i++) {
+              const bx = originX + i * stepW;
+              const rightX = bx + stepW;
+              if (rightX > activeX + 0.1) break;
+              
+              let u_rect;
+              if (riemannMode === 'left') u_rect = i / density;
+              else if (riemannMode === 'right') u_rect = (i + 1) / density;
+              else u_rect = (i + 0.5) / density;
+              const rectY = originY - f(u_rect) * plotH;
+
+              ctx.beginPath();
+              ctx.moveTo(bx, rectY);
+              ctx.lineTo(rightX, rectY);
+              // line back along the curve
+              for (let px = rightX; px >= bx; px--) {
+                const u_curve = (px - originX) / plotW;
+                ctx.lineTo(px, originY - f(u_curve) * plotH);
+              }
+              ctx.fill();
+            }
+          }
+
+          // Smooth continuous curve f(x)
+          ctx.strokeStyle = '#2563eb';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          for (let px = 0; px <= plotW; px += 2) {
+            const u = px / plotW;
+            const cy = originY - f(u) * plotH;
+            if (px === 0) ctx.moveTo(originX + px, cy);
+            else ctx.lineTo(originX + px, cy);
+          }
+          ctx.stroke();
+
+          // Precise Swept Indicator Line at Current Accumulation Frontier
+          if (currentProgressRatio > 0.005) {
+            const lineTopY = originY - f(activeU) * plotH;
+
+            // Highlight current active slice column outline (if partial)
+            const activeIndex = Math.floor(activeU * density);
+            if (activeIndex < density) {
+              const rectLeftX = originX + activeIndex * stepW;
+              const activeLeftU = activeIndex / density;
+              
+              // Sub-interval [x_i, x_i+1] bracket on X axis
+              ctx.strokeStyle = '#2563eb';
+              ctx.lineWidth = 2.5;
+              ctx.beginPath();
+              ctx.moveTo(rectLeftX, originY);
+              ctx.lineTo(rectLeftX + stepW, originY);
+              ctx.stroke();
+
+              // Δx bracket text
+              ctx.fillStyle = '#2563eb';
+              ctx.font = 'bold 11px JetBrains Mono, monospace';
+              ctx.fillText('Δx', rectLeftX + stepW / 2 - 8, originY + 16);
+            }
+
+            // Draw primary red sweeping line segment: from (x, 0) up to (x, f(x))
+            ctx.save();
+            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(activeX, originY);
+            ctx.lineTo(activeX, lineTopY);
+            ctx.stroke();
+            ctx.restore();
+
+            // End markers: bottom on X axis, top on curve
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.arc(activeX, originY, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(activeX, lineTopY, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Dynamic text annotations with collision prevention (placed above the point)
+            const labelX = activeX > originX + plotW * 0.72 ? activeX - 90 : activeX + 12;
+            const labelY = lineTopY - 20;
+
+            ctx.fillStyle = '#dc2626';
+            ctx.font = 'bold 12px JetBrains Mono, monospace';
+            ctx.fillText(`L(x) = f(x)`, labelX, labelY);
+            ctx.fillStyle = '#475569';
+            ctx.font = '11px JetBrains Mono, monospace';
+            ctx.fillText(`x = ${(activeU).toFixed(2)}`, labelX, labelY + 16);
+          }
+        }
+
+        else if (currentDim === '3D') {
+          // 3D projection parameters
+          const cx = w * 0.5;
+          const cy = h * 0.58;
+          const radX = (rotX * Math.PI) / 180;
+          const radY = (rotY * Math.PI) / 180;
+
+          // Simple 3D to 2D isometric/orthographic project function
+          const project = (x, y, z) => {
+            // Rotate around Y axis
+            const x1 = x * Math.cos(radY) + z * Math.sin(radY);
+            const z1 = -x * Math.sin(radY) + z * Math.cos(radY);
+            // Rotate around X axis
+            const y2 = y * Math.cos(radX) - z1 * Math.sin(radX);
+            const z2 = y * Math.sin(radX) + z1 * Math.cos(radX);
+
+            return {
+              x: cx + x1,
+              y: cy - y2,
+              depth: z2
+            };
+          };
+
+          // Draw 3D coordinate axes
+          const axisLen = 140;
+          const originP = project(0, 0, 0);
+          const axisX = project(axisLen, 0, 0);
+          const axisY = project(0, axisLen * 1.1, 0);
+          const axisZ = project(0, 0, axisLen);
+
+          ctx.lineWidth = 1.5;
+
+          // Z-axis (height of stacking)
+          ctx.strokeStyle = '#2563eb';
+          ctx.beginPath();
+          ctx.moveTo(originP.x, originP.y);
+          ctx.lineTo(axisY.x, axisY.y);
+          ctx.stroke();
+
+          // X-axis & Y-axis in ground plane
+          ctx.strokeStyle = '#94a3b8';
+          ctx.beginPath();
+          ctx.moveTo(originP.x, originP.y);
+          ctx.lineTo(axisX.x, axisX.y);
+          ctx.moveTo(originP.x, originP.y);
+          ctx.lineTo(axisZ.x, axisZ.y);
+          ctx.stroke();
+
+          ctx.font = '12px JetBrains Mono, monospace';
+          ctx.fillStyle = '#2563eb';
+          ctx.fillText('+Z (高度累積 dz)', axisY.x - 20, axisY.y - 10);
+          ctx.fillStyle = '#64748b';
+          ctx.fillText('+X', axisX.x + 8, axisX.y + 4);
+          ctx.fillText('+Y', axisZ.x + 8, axisZ.y + 4);
+
+          // Volume geometry: Truncated Pyramid or Cone slices
+          const H = 160;
+
+          // Integration limit markers on Z axis (offset to the left to avoid being covered)
+          const topP = project(0, H, 0);
+          const labelOffset = 110;
+          
+          ctx.beginPath();
+          ctx.setLineDash([3, 3]);
+          ctx.moveTo(originP.x, originP.y);
+          ctx.lineTo(originP.x - labelOffset, originP.y);
+          ctx.moveTo(topP.x, topP.y);
+          ctx.lineTo(topP.x - labelOffset, topP.y);
+          
+          // Vertical bounding line
+          ctx.moveTo(originP.x - labelOffset, originP.y);
+          ctx.lineTo(topP.x - labelOffset, topP.y);
+          
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.setLineDash([]);
+          
+          ctx.font = 'bold 12px JetBrains Mono, monospace';
+          ctx.fillStyle = '#334155';
+          ctx.fillText('z = 0', originP.x - labelOffset - 45, originP.y + 4);
+          ctx.fillText('z = H', topP.x - labelOffset - 45, topP.y + 4);
+          const slices = Math.max(2, density);
+          const activeSlices = Math.floor(slices * currentProgressRatio);
+          const dz = H / slices;
+
+          // Cross section shape: polygon at height z with thickness dz
+          for (let i = 0; i < activeSlices; i++) {
+            const zBottom = i * dz;
+            const zTop = (i + 1) * dz;
+            
+            let evalU;
+            if (riemannMode === 'left') evalU = i / slices;
+            else if (riemannMode === 'right') evalU = (i + 1) / slices;
+            else evalU = (i + 0.5) / slices;
+            
+            const r = 95 * shapeMult(evalU);
+
+            // Generate 4-corner slab plate points
+            const corners = [
+              [-r, -r],
+              [r, -r],
+              [r, r],
+              [-r, r]
+            ];
+
+            const bottomPts = corners.map(([px, py]) => project(px, zBottom, py));
+            const topPts = corners.map(([px, py]) => project(px, zTop, py));
+
+            // Draw plate top face
+            ctx.beginPath();
+            ctx.moveTo(topPts[0].x, topPts[0].y);
+            for (let k = 1; k < 4; k++) ctx.lineTo(topPts[k].x, topPts[k].y);
+            ctx.closePath();
+
+            // Gradient / opacity depending on stack position
+            const alpha = 0.35 + 0.35 * (i / slices);
+            ctx.fillStyle = `rgba(59, 130, 246, ${alpha})`;
+            ctx.fill();
+            ctx.strokeStyle = '#1e40af';
+            ctx.lineWidth = density > 40 ? 0.5 : 1;
+            ctx.stroke();
+
+            // Draw side faces if discrete thickness is visible
+            if (slices <= 50) {
+              for (let k = 0; k < 4; k++) {
+                const nextK = (k + 1) % 4;
+                ctx.beginPath();
+                ctx.moveTo(topPts[k].x, topPts[k].y);
+                ctx.lineTo(topPts[nextK].x, topPts[nextK].y);
+                ctx.lineTo(bottomPts[nextK].x, bottomPts[nextK].y);
+                ctx.lineTo(bottomPts[k].x, bottomPts[k].y);
+                ctx.closePath();
+                ctx.fillStyle = `rgba(37, 99, 235, ${alpha * 0.75})`;
+                ctx.fill();
+                ctx.strokeStyle = '#1d4ed8';
+                ctx.stroke();
+              }
+            }
+          }
+
+          // Draw error area (difference between discrete slabs and continuous shape) as a wireframe
+          if (showErrorArea) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(234, 179, 8, 0.85)'; // Yellow
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            
+            const signs = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
+            signs.forEach(([sx, sy]) => {
+              ctx.beginPath();
+              // Trace the smooth contour of this corner from 0 to current Z
+              for (let i = 0; i <= 50; i++) {
+                const u = (i / 50) * currentProgressRatio;
+                const z = u * H;
+                const r = 95 * shapeMult(u);
+                const p = project(sx * r, z, sy * r);
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+              }
+              ctx.stroke();
+            });
+            ctx.restore();
+          }
+
+          // Precise Swept Indicator Area at Current Accumulation Frontier (Red Cross Section)
+          if (currentProgressRatio > 0.005) {
+            const currentZ = H * currentProgressRatio;
+            const r = 95 * shapeMult(currentZ / H);
+            const corners = [
+              [-r, -r], [r, -r], [r, r], [-r, r]
+            ];
+            const activePts = corners.map(([px, py]) => project(px, currentZ, py));
+
+            // Draw red dashed cross section outline
+            ctx.save();
+            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(activePts[0].x, activePts[0].y);
+            for (let k = 1; k < 4; k++) ctx.lineTo(activePts[k].x, activePts[k].y);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.restore();
+
+            // Center point and label
+            const currentP = project(0, currentZ, 0);
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.arc(currentP.x, currentP.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            
+            ctx.font = 'bold 12px JetBrains Mono, monospace';
+            ctx.fillText(`截面 A(z)`, currentP.x + 12, currentP.y - 6);
+            
+            // If we are currently filling a discrete slice, highlight its thickness dz
+            const activeIndex = Math.floor(currentProgressRatio * slices);
+            if (activeIndex < slices) {
+              const activeBottomZ = activeIndex * dz;
+              const bottomP = project(0, activeBottomZ, 0);
+              const topP = project(0, activeBottomZ + dz, 0);
+              
+              // Draw blue delta z bracket line along the axis
+              ctx.strokeStyle = '#2563eb';
+              ctx.lineWidth = 3;
+              ctx.beginPath();
+              ctx.moveTo(bottomP.x, bottomP.y);
+              ctx.lineTo(topP.x, topP.y);
+              ctx.stroke();
+              
+              let w = ctx.measureText(`截面 A(z)`).width;
+              ctx.fillStyle = '#64748b';
+              ctx.fillText(` · `, currentP.x + 12 + w, currentP.y - 6);
+              w += ctx.measureText(` · `).width;
+              ctx.fillStyle = '#2563eb';
+              ctx.fillText(`Δz`, currentP.x + 12 + w, currentP.y - 6);
+            }
+          }
+        }
+
+        ctx.restore();
+      }, [currentDim, n, progress, rotX, rotY, funcType, riemannMode, showErrorArea, f, shapeMult]);
+
+      // Re-trigger canvas draw on frame update
+      useEffect(() => {
+        drawCanvas();
+      }, [drawCanvas]);
+
+      // Handle window resize dynamically
+      useEffect(() => {
+        const handleResize = () => drawCanvas();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+      }, [drawCanvas]);
+
+      const handleMouseDown = (e) => {
+        if (currentDim !== '3D') return;
+        setIsDragging(true);
+        dragStart.current = { x: e.clientX, y: e.clientY };
+      };
+
+      const handleMouseMove = (e) => {
+        if (!isDragging || currentDim !== '3D') return;
+        const dx = e.clientX - dragStart.current.x;
+        const dy = e.clientY - dragStart.current.y;
+        dragStart.current = { x: e.clientX, y: e.clientY };
+
+        setRotY((prev) => prev + dx * 0.7);
+        setRotX((prev) => Math.max(-80, Math.min(80, prev - dy * 0.7)));
+      };
+
+      const handleMouseUp = () => {
+        setIsDragging(false);
+      };
+
+      return (
+        <div className="flex flex-col h-screen overflow-hidden">
+          {/* Top Academic Header / Navigation Bar */}
+          <header className="h-16 academic-card border-b bg-white/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between z-30 shrink-0">
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md shadow-brand-500/25 font-bold text-lg">
+                ∫
+              </div>
+              <div>
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                  微積分幾何維度演進
+                  <span className="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 font-semibold">
+                    幾何視覺化儀表板
+                  </span>
+                </h1>
+                <p className="hidden md:block text-[11px] text-slate-500">
+                  從點到體積：點(0D) → 線(1D) → 面(2D) → 體(3D) 的黎曼累積
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Dimension Nav + Global Play/Pause */}
+            <div className="flex items-center space-x-3">
+              <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+                {DIMENSIONS.map((dim) => {
+                  const isActive = currentDim === dim.id;
+                  return (
+                    <button
+                      key={dim.id}
+                      onClick={() => {
+                        setCurrentDim(dim.id);
+                        setProgress(100);
+                        setIsPlaying(false);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                        isActive ? 'tab-active' : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                      }`}
+                    >
+                      {dim.id}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Header Quick Play/Pause Shortcut */}
+              <button
+                onClick={() => {
+                  if (!isPlaying && progress >= 100) {
+                    setProgress(0);
+                    setIsPlaying(true);
+                  } else {
+                    setIsPlaying(!isPlaying);
+                  }
+                }}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg shadow-sm transition-colors ${
+                  isPlaying 
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                    : 'bg-brand-600 hover:bg-brand-700 text-white'
+                }`}
+                title={isPlaying ? '暫停動畫' : '播放動畫'}
+              >
+                {isPlaying ? (
+                  <>
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                    <span>暫停</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                    <span>{progress >= 100 ? '重播' : '播放'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </header>
+
+          {/* Main Dashboard Layout: Split View (Canvas stays visible on Left; Controls on Right) */}
+          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-3 sm:p-4 gap-4">
+            
+            {/* Left Area: Always-Visible Interactive Visualizer Canvas (Occupies ~68% width on desktop) */}
+            <section className="lg:w-[68%] w-full h-[50vh] lg:h-full flex flex-col academic-card rounded-2xl p-3.5 relative overflow-hidden bg-white">
+              
+              {/* Canvas Header Status Overlay */}
+              <div className="flex items-center justify-between mb-2 z-10">
+                <div className="flex items-center space-x-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-brand-500 animate-pulse"></span>
+                  <span className="text-sm font-bold text-slate-800">{activeDimData.title}</span>
+                  <span className="text-xs text-slate-500 font-mono hidden sm:inline-block">({activeDimData.badge})</span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-mono text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+                    {currentDim === '0D' ? '零向度基元' : `微元 n = ${n}`}
+                  </span>
+                  <span className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                    進度: {Math.round(progress)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Primary Canvas Container */}
+              <div 
+                className={`w-full flex-1 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden relative cursor-${currentDim === '3D' ? 'grab active:cursor-grabbing' : 'default'}`}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              >
+                <canvas 
+                  ref={canvasRef} 
+                  className="w-full h-full block"
+                />
+
+                {/* Overlaid Context Floating Widgets inside Canvas */}
+                {currentDim === '3D' && (
+                  <div className="absolute top-3 right-3 flex items-center gap-2 bg-white/90 backdrop-blur-md border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-600 font-mono shadow-sm">
+                    <span>X: {Math.round(rotX)}° | Y: {Math.round(rotY)}°</span>
+                    <button
+                      onClick={() => { setRotX(25); setRotY(-35); }}
+                      className="text-brand-600 hover:text-brand-800 underline font-sans ml-1 text-[11px]"
+                    >
+                      重設視角
+                    </button>
+                  </div>
+                )}
+
+                {/* Bottom Canvas Subtle Watermark Indicator */}
+                <div className="absolute bottom-2.5 left-3 text-[11px] text-slate-500 font-mono pointer-events-none select-none bg-white/80 backdrop-blur-xs px-2 py-0.5 rounded border border-slate-200/60">
+                  {currentDim === '3D' ? '💡 滑鼠拖曳可 360° 旋轉切片結構' : currentDim === '2D' ? '紅線精準錨定當前掃掠微元 L(x)·Δx' : currentDim === '1D' ? '離散點列與連續線段轉換' : '0D 奇點 (dx → 0)'}
+                </div>
+              </div>
+
+              {/* Bottom Quick Mini Indicator */}
+              <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-500 px-1 font-mono">
+                <span className="truncate max-w-[70%]">
+                  {activeDimData.sub}
+                </span>
+                <span className="font-semibold text-brand-600 shrink-0">
+                  {n >= 60 ? '連續定積分極限 ∫' : '離散黎曼和 ∑'}
+                </span>
+              </div>
+            </section>
+
+            {/* Right Area: Dedicated Control Sidebar (Fixed viewport on desktop, scrolls independently) */}
+            <aside className="lg:w-[32%] w-full h-[50vh] lg:h-full academic-card rounded-2xl flex flex-col overflow-hidden bg-white">
+              
+              {/* Sidebar Title */}
+              <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                  <h2 className="text-sm font-bold text-slate-800">控制面板與數學分析</h2>
+                </div>
+                <span className="text-[11px] font-mono text-slate-500">
+                  即時聯動中
+                </span>
+              </div>
+
+              {/* Scrollable controls content */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+
+                {/* 1. Dynamic Playback & Progress Controller */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                    <span className="flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      累積進程控制 (Progress)
+                    </span>
+                    <span className="font-mono text-brand-600 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+                      {Math.round(progress)}%
+                    </span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={progress}
+                    onChange={(e) => {
+                      setProgress(parseFloat(e.target.value));
+                      setIsPlaying(false);
+                    }}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                  />
+
+                  {/* Playback Buttons & Speed Control */}
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => {
+                          if (!isPlaying && progress >= 100) {
+                            setProgress(0);
+                            setIsPlaying(true);
+                          } else {
+                            setIsPlaying(!isPlaying);
+                          }
+                        }}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 ${
+                          isPlaying 
+                            ? 'bg-amber-500 text-white hover:bg-amber-600'
+                            : 'bg-brand-600 text-white hover:bg-brand-700'
+                        }`}
+                      >
+                        {isPlaying ? '暫停' : (progress >= 100 ? '重播動畫' : '播放動畫')}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center space-x-1 text-[11px] font-mono text-slate-600">
+                      <span>速度:</span>
+                      {[0.5, 1, 2].map((spd) => (
+                        <button
+                          key={spd}
+                          onClick={() => setPlaybackSpeed(spd)}
+                          className={`px-1.5 py-0.5 rounded ${
+                            playbackSpeed === spd 
+                              ? 'bg-brand-600 text-white font-bold' 
+                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {spd}x
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Micro Element Density Slider (n) */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                    <span className="flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                      </svg>
+                      分割密度微元數 (n)
+                    </span>
+                    <span className="font-mono text-brand-600 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+                      n = {n}
+                    </span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="2"
+                    max="100"
+                    step="1"
+                    disabled={currentDim === '0D'}
+                    value={n}
+                    onChange={(e) => setN(parseInt(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer disabled:opacity-30"
+                  />
+
+                  <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                    <span>離散粗塊 (n=2)</span>
+                    <span className="text-brand-600 font-semibold">{n >= 60 ? '⚡ 黎曼極限 (光滑)' : '梯形/柱狀近似'}</span>
+                    <span>極限微元 (n=100)</span>
+                  </div>
+                </div>
+
+                {/* 2.5 Advanced Pedagogical Controls (2D & 3D) */}
+                {['2D', '3D'].includes(currentDim) && (
+                  <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-3">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-800">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                      </svg>
+                      進階教學設定
+                    </div>
+                    
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] text-slate-500 font-bold">幾何形狀 / 函數類型</span>
+                      <select 
+                        value={funcType} 
+                        onChange={(e) => { setFuncType(e.target.value); setProgress(0); setIsPlaying(true); }}
+                        className="text-xs bg-white border border-slate-200 rounded p-1 text-slate-700 outline-none focus:border-brand-500"
+                      >
+                        <option value="constant">{currentDim === '2D' ? '常數函數 (矩形面積)' : '常數截面 (柱體)'}</option>
+                        <option value="linear">{currentDim === '2D' ? '線性函數 (梯形面積)' : '線性遞減 (錐台)'}</option>
+                        <option value="quad">{currentDim === '2D' ? '二次函數 (拋物線)' : '二次遞減 (拋物體)'}</option>
+                        <option value="trig">{currentDim === '2D' ? '三角函數 (複雜波浪)' : '三角函數 (起伏花瓶)'}</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] text-slate-500 font-bold">取樣點 (Riemann Sum)</span>
+                      <select 
+                        value={riemannMode} 
+                        onChange={(e) => { setRiemannMode(e.target.value); }}
+                        className="text-xs bg-white border border-slate-200 rounded p-1 text-slate-700 outline-none focus:border-brand-500"
+                      >
+                        <option value="left">{currentDim === '2D' ? '左黎曼和 (Left Endpoint)' : '底端點取樣 (Bottom)'}</option>
+                        <option value="right">{currentDim === '2D' ? '右黎曼和 (Right Endpoint)' : '頂端點取樣 (Top)'}</option>
+                        <option value="mid">中點黎曼和 (Midpoint)</option>
+                      </select>
+                    </div>
+
+                    <label className="flex items-center gap-2 cursor-pointer pt-1">
+                      <input 
+                        type="checkbox" 
+                        checked={showErrorArea} 
+                        onChange={(e) => setShowErrorArea(e.target.checked)}
+                        className="rounded text-brand-600 focus:ring-brand-500 h-3 w-3"
+                      />
+                      <span className="text-xs text-slate-700 font-semibold">{currentDim === '2D' ? '突顯離散誤差面積 (黃色)' : '突顯平滑幾何輪廓 (黃色輔助線)'}</span>
+                    </label>
+                  </div>
+                )}
+
+                {/* 3. Real-Time Telemetry & Measurement Data Card */}
+                <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2 text-xs">
+                  <div className="font-bold text-slate-800 flex items-center justify-between text-[11px] pb-1 border-b border-slate-100">
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      即時幾何測量數據 (Telemetry)
+                    </span>
+                    <span className="text-slate-400 font-mono">{stats.unit}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-slate-600 pt-1 font-mono text-[11px]">
+                    <div className="bg-slate-50 p-2 rounded border border-slate-100">
+                      <div className="text-[10px] text-slate-400">當前微元大小</div>
+                      <div className="font-bold text-slate-800 truncate">{stats.stepSize}</div>
+                    </div>
+                    <div className="bg-slate-50 p-2 rounded border border-slate-100">
+                      <div className="text-[10px] text-slate-400">離散黎曼和 ∑</div>
+                      <div className="font-bold text-brand-600 truncate">{stats.discreteSum}</div>
+                    </div>
+                    <div className="bg-slate-50 p-2 rounded border border-slate-100">
+                      <div className="text-[10px] text-slate-400">連續理論積分 ∫</div>
+                      <div className="font-bold text-indigo-600 truncate">{stats.exactVal}</div>
+                    </div>
+                    <div className="bg-slate-50 p-2 rounded border border-slate-100">
+                      <div className="text-[10px] text-slate-400">離散與理論誤差</div>
+                      <div className="font-bold text-amber-600 truncate">{stats.error}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. MathJax Formula Linkage Area */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>微積分對應公式</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-brand-100 text-brand-700 font-mono">
+                      {activeDimData.elementUnit}
+                    </span>
+                  </div>
+
+                  {/* Discrete Sum Formula */}
+                  <div className="bg-white p-2 rounded-lg border border-slate-200 text-center font-mono text-xs">
+                    <div className="text-[10px] text-slate-400 text-left mb-0.5">離散求和 (Riemann Sum):</div>
+                    <MathDisplay math={activeDimData.discreteFormula} display={true} />
+                  </div>
+
+                  {/* Continuous Integral Formula */}
+                  <div className="bg-brand-50/70 p-2 rounded-lg border border-brand-200 text-center font-mono text-xs">
+                    <div className="text-[10px] text-brand-600 text-left mb-0.5">連續定積分 (Definite Integral):</div>
+                    <div className="text-brand-950 font-bold">
+                      <MathDisplay math={activeDimData.continuousFormula} display={true} />
+                    </div>
+                  </div>
+
+                  {/* Color Coding Legend */}
+                  <div className="flex items-center justify-center space-x-3 text-[10px] font-mono bg-white/50 py-1.5 rounded border border-slate-200/60 mt-1">
+                    <div className="flex items-center space-x-1">
+                      <span className="w-2.5 h-2.5 rounded bg-[#dc2626]"></span>
+                      <span className="text-slate-600">維度投影 (高度/面積)</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span className="w-2.5 h-2.5 rounded bg-[#2563eb]"></span>
+                      <span className="text-slate-600">微小步進 (Δx/dx)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Geometric Principle Summary */}
+                <div className="p-3 bg-gradient-to-br from-slate-50 to-blue-50/40 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1.5">
+                  <div className="font-bold text-slate-800 text-[11px] flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5 text-brand-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    幾何原理解析
+                  </div>
+                  <div className="text-[11px] leading-relaxed text-slate-600">
+                    <MathText text={activeDimData.concept} />
+                  </div>
+                  <div className="pt-1 text-[11px] font-semibold text-brand-700">
+                    <MathText text={activeDimData.integralIntuition} />
+                  </div>
+                </div>
+
+              </div>
+            </aside>
+
+          </div>
+        </div>
+      );
+    }
+
+    const rootElement = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(<App />);
+  </script>
+</body>
+</html>

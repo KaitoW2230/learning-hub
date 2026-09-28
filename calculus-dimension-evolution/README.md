@@ -43,6 +43,6 @@
 
 ## 🤖 AI 協作開發聲明 (AI Collaboration)
 本專案為 **人機協作 (Human-AI Collaboration)** 成果：
-- **教學設計與規格制定**：Kaito Wang
+- **教學架構規劃、需求規格制定，以及程式碼調校與除錯修正**：Kaito Wang
 - **程式碼開發與視覺化演算法協作**：Google Gemini / Antigravity AI
 

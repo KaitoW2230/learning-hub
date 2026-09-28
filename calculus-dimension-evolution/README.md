@@ -23,6 +23,15 @@
    - **紅色 (#dc2626)**：維度投影（長度 $f(x)$ / 截面積 $A(z)$）
    - **藍色 (#2563eb)**：微小步進向度（$\Delta x, dx, \Delta z$）
 
+## 📚 關鍵詞彙與專有名詞索引 (Glossary & Terminology Index)
+1. **微元 (Infinitesimal Element, $\Delta x, dx, \Delta z, dz$)**：將連續變量或幾何圖形切割成無窮小單元的微小步進向度，為微積分累積與積分計算的基本構件。
+2. **定積分 (Definite Integral, $\int_a^b f(x) dx$)**：計算函數在特定區間 $[a, b]$ 內累積總量（如波形累積面積或體積）的數學工具。
+3. **黎曼和 (Riemann Sum)**：用有限個離散矩形面積之和來近似連續定積分面積的方法。本教材支援左端點 (Left)、右端點 (Right) 與中點 (Midpoint) 取樣。
+4. **極限 (Limit, $\lim_{n \to \infty}$)**：當分割微元數 $n$ 趨近於無窮大、微元寬度 $\Delta x \to 0$ 時，離散和收斂逼近至連續定積分精確數值的過程。
+5. **卡瓦列里原理 (Cavalieri's Principle)**：兩幾何體若在所有等高處之 2D 截面積均相等，則其 3D 總體積亦必相等的原理。本教材據此將 2D 面積沿 Z 軸堆疊求取 3D 體積。
+6. **等角投影 (Isometric Projection)**：一種無透視變形的 3D 空間繪圖技術，讓三維幾何向量在 2D 平面上呈現等比例投影，便利進行 360 度角度拖曳與結構觀察。
+7. **Telemetry 即時數據量測面板**：教材右下角之量測組件，實時動態計算當前微元大小、離散和、真實定積分數值與兩者之間之誤差百分比 (Error %)。
+
 ## 📄 檔案結構
 - `index.html` / `code_artifact_v2.html`：單一檔案完整互動網頁
 - `Gemini用提示詞.md` / `Gemini用提示詞.txt`：可用於 Google Gemini 生成本網頁的專用 AI 提示詞與設定指南

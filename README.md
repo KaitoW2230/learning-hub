@@ -18,4 +18,11 @@
 - **Math Engine**: MathJax 3
 
 ---
+
+## 🤖 AI 協作開發聲明
+本資源庫中之數位教材、互動網頁演算法與教學提示詞，均採用 **Human-in-the-Loop 人機協作** 模式開發：
+- **教學架構與需求設計**：Kaito Wang
+- **程式碼開發與視覺化演算法協作**：Google Gemini / Antigravity AI
+
+---
 © 2026 KaitoW2230. All rights reserved.

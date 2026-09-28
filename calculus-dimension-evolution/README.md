@@ -29,3 +29,11 @@
 
 ## 💡 Gemini 生成提示詞
 若您希望利用 Google Gemini (建議使用 Gemini 3.1 Pro + 延伸思考) 重新生成或客製化此網頁，請參閱 [`Gemini用提示詞.md`](./Gemini用提示詞.md)。
+
+---
+
+## 🤖 AI 協作開發聲明 (AI Collaboration)
+本專案為 **人機協作 (Human-AI Collaboration)** 成果：
+- **教學設計與規格制定**：Kaito Wang
+- **程式碼開發與視覺化演算法協作**：Google Gemini / Antigravity AI
+
